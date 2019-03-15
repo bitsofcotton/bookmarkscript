@@ -332,62 +332,55 @@ strict.dtd">
     echo "DB error";
     exit;
   }
-  echo '</div>';
   switch($_REQUEST['menu']) {
   case 'index':
   // ### index login index ###
 ?>
-<div id="contains">
   <div align="center">
     <table>
 <?php
-  write_hierarchy(DB_TAG_0,  true, false);
-  write_hierarchy($r['tid'], true, false);
-  try {
-    $stmt = $pdo->prepare("SELECT href, title, intro, tag, words, nid FROM ".
-                          DB_TBL_NODE . " WHERE uid = :uid ;");
-    $stmt->execute(array(':uid' => $r['uid']));
-    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    foreach($rows as $row) {
-      echo '<tr><td>';
-      echo '<a href="' . $row['href'] . '">' . $row['title'] . '</a></td>';
-      echo '<td>' . $row['intro'] . '</td>';
-      $tags  = explode(",", $row['tag']);
-      echo '<td>';
-      foreach($tags as $tag) {
-        $stmt2 = $pdo->prepare("SELECT title FROM " . DB_TBL_TAG . " WHERE " .
-                               "tid = :tid and uid = :uid ;");
-        $stmt2->execute(array(':tid' => $tag, ':uid' => $r['uid']));
-        if($subresult = $stmt2->fetch(PDO::FETCH_ASSOC)) {
-          echo '<a href="index.php?menu=tag&tid=' . $tag . '">';
-          echo $subresult['title'];
-          echo "</a>  ";
+    write_hierarchy(DB_TAG_0,  true, false);
+    write_hierarchy($r['tid'], true, false);
+    try {
+      $stmt = $pdo->prepare("SELECT href, title, intro, tag, words, nid FROM ".
+                            DB_TBL_NODE . " WHERE uid = :uid ;");
+      $stmt->execute(array(':uid' => $r['uid']));
+      $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+      foreach($rows as $row) {
+        echo '<tr><td>';
+        echo '<a href="' . $row['href'] . '">' . $row['title'] . '</a></td>';
+        echo '<td>' . $row['intro'] . '</td>';
+        $tags  = explode(",", $row['tag']);
+        echo '<td>';
+        foreach($tags as $tag) {
+          $stmt2 = $pdo->prepare("SELECT title FROM " . DB_TBL_TAG . " WHERE " .
+                                 "tid = :tid and uid = :uid ;");
+          $stmt2->execute(array(':tid' => $tag, ':uid' => $r['uid']));
+          if($subresult = $stmt2->fetch(PDO::FETCH_ASSOC)) {
+            echo '<a href="index.php?menu=tag&tid=' . $tag . '">';
+            echo $subresult['title'];
+            echo "</a>  ";
+          }
         }
+        echo '</td><td>';
+        $words = explode(",", $row['words']);
+        foreach ( $words as $word ) {
+          echo $word .
+            '(<a href="http://ja.wikipedia.org/wiki/' . $word . '">J</a>' .
+            '<a href="http://en.wikipedia.org/wiki/' . $word . '">E</a>) ';
+        }
+        echo '</td><td><a href="index.php?menu=delete&nid=' . $row['nid'] . '">Del</a></td>';
+        echo "</tr>";
       }
-      echo '</td><td>';
-      $words = explode(",", $row['words']);
-      foreach ( $words as $word ) {
-        echo $word .
-          '(<a href="http://ja.wikipedia.org/wiki/' . $word . '">J</a>' .
-          '<a href="http://en.wikipedia.org/wiki/' . $word . '">E</a>) ';
-      }
-      echo '</td><td><a href="index.php?menu=delete&nid=' . $row['nid'] . '">Del</a></td>';
-      echo "</tr>";
+      echo "</table></div></div>";
+    } catch (PDOException $e) {
+      echo "</table>DB error</div></div>";
+      exit;
     }
-?>
-    </table>
-  </div>
-</div>
-<?php
-  } catch (PDOException $e) {
-    echo "DB error";
-    exit;
-  }
     break;
   // ### index profile ###
   case 'profile':
 ?>
-<div id="contains">
   <div align="center">
     <form action="index.php?menu=profile" method="post">
     <table class="noboarder">
@@ -411,37 +404,33 @@ strict.dtd">
     break;
   // ### index add ###
   case 'add':
-  $flag = 0;
-  if(isset($_REQUEST['url']) and $_REQUEST['url'] != "") {
-    $tag  = trace_hierarchy(DB_TAG_0, $_REQUEST);
-    $tag  = $tag . trace_hierarchy($r['tid'], $_REQUEST);
-    try {
-      $stmt = $pdo->prepare("INSERT INTO " . DB_TBL_NODE .
-                            " (uid, title, href, intro, tag, words) VALUES " .
-                            "(:uid, :title, :url, :comment, :tag, :words);");
-      $stmt->execute(array(':uid'     => $r['uid'],
-                           ':title'   => $_REQUEST['title'],
-                           ':url'     => $_REQUEST['url'],
-                           ':comment' => $_REQUEST['comment'],
-                           ':tag'     => $tag,
-                           ':words'   => $_REQUEST['words']));
-      $flag   = 1;
-    } catch (PDOException $e) {
-      echo "DB error";
-      exit;
-    }
-  }
 ?>
-<div id="contains">
   <div align="center">
     <p class="comment">
     Please ensure that your comment are global-readable by default.
     </p>
-  <?php
-    if($flag == 1)
-      echo '<p class="comment">New bookmark to ' . $_REQUEST['url'] .
-        ' had added.</p>';
-  ?>
+<?php
+    if(isset($_REQUEST['url']) and $_REQUEST['url'] != "") {
+      $tag  = trace_hierarchy(DB_TAG_0, $_REQUEST);
+      $tag  = $tag . trace_hierarchy($r['tid'], $_REQUEST);
+      try {
+        $stmt = $pdo->prepare("INSERT INTO " . DB_TBL_NODE .
+                              " (uid, title, href, intro, tag, words) VALUES " .
+                              "(:uid, :title, :url, :comment, :tag, :words);");
+        $stmt->execute(array(':uid'     => $r['uid'],
+                             ':title'   => $_REQUEST['title'],
+                             ':url'     => $_REQUEST['url'],
+                             ':comment' => $_REQUEST['comment'],
+                             ':tag'     => $tag,
+                             ':words'   => $_REQUEST['words']));
+        echo '<p class="comment">New bookmark to ' . $_REQUEST['url'] .
+          ' had added.</p>';
+      } catch (PDOException $e) {
+        echo "DB error";
+        exit;
+      }
+    }
+?>
   <form action="index.php?menu=add" method="post">
   <table class="noboarder">
   <tr class="noboarder"><td class="noboarder">Title: </td>
@@ -458,9 +447,9 @@ strict.dtd">
      </td></tr>
   <tr class="noboarder"><td class="noboarder">Flags: </td><td>
 <?php
-  // attribute tag
-  write_hierarchy(DB_TAG_0,  true, false);
-  write_hierarchy($r['tid'], true, false);
+    // attribute tag
+    write_hierarchy(DB_TAG_0,  true, false);
+    write_hierarchy($r['tid'], true, false);
 ?>
     </td></tr>
   </table>
@@ -472,109 +461,96 @@ strict.dtd">
     break;
   // ### index delete ###
   case 'delete':
-  $flag = 0;
-  if(isset($_REQUEST['nid']) and $_REQUEST['nid'] != "") {
-    try {
-      $stmt = $pdo->prepare("DELETE FROM " . DB_TBL_NODE .
-                            " WHERE nid = :nid AND uid = :uid ;");
-      $stmt->execute(array(':nid' => $_REQUEST['nid'],
-                           ':uid' => $r['uid']));
-      $flag = 1;
-    } catch (PDOException $e) {
-      echo "DB error";
+    echo '<div align="center">';
+    if(isset($_REQUEST['nid']) and $_REQUEST['nid'] != "") {
+      try {
+        $stmt = $pdo->prepare("DELETE FROM " . DB_TBL_NODE .
+                              " WHERE nid = :nid AND uid = :uid ;");
+        $stmt->execute(array(':nid' => $_REQUEST['nid'],
+                             ':uid' => $r['uid']));
+        echo "Deleted.";
+      } catch (PDOException $e) {
+        echo "DB error";
+      }
     }
-  }
-?>
-<div id="contains">
-  <div align="center">
-    Deleted.
-  </div>
-</div>
-<?php
+    echo "</div></div>";
     break;
   // ### index tag ###
   case 'tag':
-  $flag = 0;
-  if(isset($_REQUEST['mode'])) {
-    switch($_REQUEST['mode']) {
-    case "new":
-      if(!isset($_REQUEST['title'])) {
-        echo "Invalid request.";
-      } else {
-        $m = trace_hierarchy($r['tid'], array('chktid_' . $_REQUEST['tid'] => 'c'));
-        if($_REQUEST['tid'] == $r['tid'] ||
-           strpos($m, " " . $_REQUEST['tid'] . ",") !== false) {
-          try {
-            $stmt = $pdo->prepare("INSERT INTO " . DB_TBL_TAG .
-                                  " (uid, title, intro, words, l_parent) " .
-                                  " VALUES (:uid, :title, :intro, :words, :tid);");
-            $stmt->execute(array(':uid'   => $r['uid'],
-                                 ':title' => $_REQUEST['title'],
-                                 ':intro' => $_REQUEST['intro'],
-                                 ':words' => $_REQUEST['words'],
-                                 ':tid'   => $_REQUEST['tid']));
-          } catch (PDOException $e) {
-            echo "DB error.";
-            exit;
-          }
-        }
-      }
-      $flag = 1;
-      break;
-    case "edit":
-      $flag = 2;
-      break;
-    case "delete":
-      if($_REQUEST['tid'] == $tid) {
-        echo "Cannot delete root node.";
-        break;
-      }
-      try {
-        $stmt = $pdo->prepare("SELECT tid FROM " . DB_TBL_TAG . " WHERE " .
-                              "uid = :uid and tid = :tid ;");
-        $stmt->execute(array(':uid' => $r['uid'],
-                             ':tid' => $_REQUEST['tid']));
-        if(! $stmt->fetch(PDO::FETCH_ASSOC)) {
-          echo "No such tag exists.";
+    if(isset($_REQUEST['mode'])) {
+      switch($_REQUEST['mode']) {
+      case "new":
+        if(!isset($_REQUEST['title'])) {
+          echo "Invalid request.";
         } else {
-          $stmt = $pdo->prepare("SELECT nid FROM " . DB_TBL_NODE .
-                                " WHERE tag LIKE :tag");
-          $stmt->execute(array(':tag' => "%" . $_REQUEST['tid'] . "%"));
-          if(! $stmt->fetch(PDO::FETCH_ASSOC)) {
-            $stmt = $pdo->prepare("SELECT tid FROM " . DB_TBL_TAG .
-                                  " WHERE l_parent = :tid ;");
-            $stmt->execute(array(':tid' => $_REQUEST['tid']));
-            if(! $stmt->fetch(PDO::FETCH_ASSOC)) {
-              $stmt = $pdo->prepare("DELETE FROM " . DB_TBL_TAG . " WHERE " .
-                                    "uid = :uid AND tid = :tid ;");
-              $stmt->execute(array(':uid' => $r['uid'],
-                                   ':tid'  => $_REQUEST['tid']));
-            } else {
-              echo "There exists siblings.";
+          $m = trace_hierarchy($r['tid'], array('chktid_' . $_REQUEST['tid'] => 'c'));
+          if($_REQUEST['tid'] == $r['tid'] ||
+             strpos($m, " " . $_REQUEST['tid'] . ",") !== false) {
+            try {
+              $stmt = $pdo->prepare("INSERT INTO " . DB_TBL_TAG .
+                                    " (uid, title, intro, words, l_parent) " .
+                                    " VALUES (:uid, :title, :intro, :words, :tid);");
+              $stmt->execute(array(':uid'   => $r['uid'],
+                                   ':title' => $_REQUEST['title'],
+                                   ':intro' => $_REQUEST['intro'],
+                                   ':words' => $_REQUEST['words'],
+                                   ':tid'   => $_REQUEST['tid']));
+            } catch (PDOException $e) {
+              echo "DB error.";
+              exit;
             }
-          } else {
-            echo "There exists leaf nodes.";
           }
         }
-      } catch(PDOException $e) {
-        echo "DB error.";
-        var_dump($e);
-        exit;
+        break;
+      case "edit":
+        break;
+      case "delete":
+        if($_REQUEST['tid'] == $tid) {
+          echo "Cannot delete root node.";
+          break;
+        }
+        try {
+          $stmt = $pdo->prepare("SELECT tid FROM " . DB_TBL_TAG . " WHERE " .
+                                "uid = :uid and tid = :tid ;");
+          $stmt->execute(array(':uid' => $r['uid'],
+                               ':tid' => $_REQUEST['tid']));
+          if(! $stmt->fetch(PDO::FETCH_ASSOC)) {
+            echo "No such tag exists.";
+          } else {
+            $stmt = $pdo->prepare("SELECT nid FROM " . DB_TBL_NODE .
+                                  " WHERE tag LIKE :tag");
+            $stmt->execute(array(':tag' => "%" . $_REQUEST['tid'] . "%"));
+            if(! $stmt->fetch(PDO::FETCH_ASSOC)) {
+              $stmt = $pdo->prepare("SELECT tid FROM " . DB_TBL_TAG .
+                                    " WHERE l_parent = :tid ;");
+              $stmt->execute(array(':tid' => $_REQUEST['tid']));
+              if(! $stmt->fetch(PDO::FETCH_ASSOC)) {
+                $stmt = $pdo->prepare("DELETE FROM " . DB_TBL_TAG . " WHERE " .
+                                      "uid = :uid AND tid = :tid ;");
+                $stmt->execute(array(':uid' => $r['uid'],
+                                     ':tid'  => $_REQUEST['tid']));
+              } else {
+                echo "There exists siblings.";
+              }
+            } else {
+              echo "There exists leaf nodes.";
+            }
+          }
+        } catch(PDOException $e) {
+          echo "DB error.";
+          exit;
+        }
+        break;
+      default:
+        ;
       }
-      $flag = 3;
-      break;
-    default:
-      $flag = 4;
     }
-  }
-    echo '<div id="contains">';
     write_hierarchy($r['tid'], false, true);
     echo "</div>";
     break;
   // ### index im/export ###
   case 'imexport':
 ?>
-<div id="contains">
   <div align="center">
   <form action="index.php?menu=imexport" method="post">
   <table class="noboarder">
@@ -590,33 +566,16 @@ strict.dtd">
   <input type="submit" /> <br/><br/>
   <p class="comment">Tags to be attributed or to be exported:</p>
 <?php
-  // attribute tag
-  write_hierarchy(DB_TAG_0,  true, false);
-  write_hierarchy($r['tid'], true, false);
-?>
-  </form>
-  </div>
-</div>
-<?php
+    // attribute tag
+    write_hierarchy(DB_TAG_0,  true, false);
+    write_hierarchy($r['tid'], true, false);
+    echo "</form></div></div>";
     break;
   // ### index logout ###
   default:
     session_destroy();
-?>
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strinct.dtd">
-<html>
-<head>
-  <meta http-equiv="Content-Type" content="text/html" charset="utf-8" />
-  <meta http-equiv="Content-Style-Type" content="text/css" />
-  <meta http-equiv="Content-Script-Type" content="text/javascript" />
-  <meta http-equiv="refresh" content="1; url=index.php?menu=index" />
-  <link rel="stylesheet" type="text/css" href="res/style.css" />
-  <title>Now exitting your session.</title>
-</head>
-<body id="index" onLoad="setFocus();">
-  <h1>Transfering your session with meta tag</h1>
-  Please wait a second or click <a href="index.php?menu=index">here</a>.
-<?php
+    echo 'Logged out, <a href="index.php?menu=index">please click here</a>.' .
+         "</div>";
   }
   $pdo = NULL;
 ?>
