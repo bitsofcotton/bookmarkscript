@@ -1,11 +1,12 @@
 <?php
 
-session_start();
-
+session_start(); 
 define("DB_TBL_ACCOUNT", "account");
 define("DB_TBL_TAG",     "tags");
 define("DB_TBL_NODE",    "nodes");
 define("DB_TAG_0",       1);
+
+$myfile = basename(__FILE__);
 
 try {
   // php that fresh enough, we can do database queries on PDO.
@@ -29,9 +30,9 @@ function write_existing_tags($row, $check, $edit)
     echo '<td>' . $row['title'] . '</td>';
     echo '<td>' . $row['intro'] . '</td>';
     echo '<td>' . $row['words'] . '</td>';
-    echo '<td><a href="index.php?menu=tag&mode=edit&tid=' . $row['tid'] .
+    echo '<td><a href="' . $myfile . '?menu=tag&mode=edit&tid=' . $row['tid'] .
       '">Edit</a></td>';
-    echo '<td><a href="index.php?menu=tag&mode=delete&tid=' .
+    echo '<td><a href="' . $myfile . '?menu=tag&mode=delete&tid=' .
       $row['tid'] . '">Delete</a></td>';
   } else {
     echo '<td>' . $row['title'] . '</td>';
@@ -70,7 +71,7 @@ function write_hierarchy($tid, $check, $newbox, $depth = 3)
     exit;
   }
   if($newbox) {
-    echo '<tr><form action="index.php?menu=tag&mode=new&tid=' . $tid . '" method="post">';
+    echo '<tr><form action="' . $myfile . '?menu=tag&mode=new&tid=' . $tid . '" method="post">';
     echo '<td><input class="noboarder" type="text" name="title" width="7" /></td>';
     echo '<td><input class="noboarder" type="text" name="intro" width="7" /></td>';
     echo '<td><input class="noboarder" type="text" name="words" width="7" /></td>';
@@ -177,24 +178,15 @@ strict.dtd">
 
 <body id="root">
 <?php
-  $flag = false;
   if(!isset($_SESSION['name']) or
      !isset($_SESSION['pass'])) {
     if(!isset($_POST['name']) or
        !isset($_POST['pass'])) {
-      $flag = true;
-    } else {
-      $_SESSION['name'] = $_POST['name'];
-      $_SESSION['pass'] = $_POST['name'] . $_POST['pass'];
-    }
-  }
-  // ### index.php with no login ###
-  if($flag) {
-    session_destroy();
-    // normal operation
+      // ### no login ###
+      session_destroy();
 ?>
 <div id="top_menu">
-  <form action="index.php?menu=search">
+  <form action="<?php echo $myfile; ?>?menu=search">
   <p class="menu">
      Search: <input class="noboarder" type="text" />
      (<input type="checkbox" value="Tag"  name="tag" />Tag |
@@ -206,9 +198,8 @@ strict.dtd">
 </div>
 <div id="contains">
   <div align="center">
-   Please <?php if($flag) echo "<b>"; ?>Login<?php if($flag) echo "</b>"; ?>:
-    <br/>
-   <form action="index.php?menu=index" method="post">
+   Please Login:<br/>
+   <form action="<?php echo $myfile; ?>?menu=index" method="post">
    <table class="noboarder">
    <tr class="noboarder"><td class="noboarder">ID: </td>
      <td class="noboarder"><input class="noboarder" type="text" name="name" />
@@ -224,62 +215,60 @@ strict.dtd">
    or check <input type="checkbox" name="register" />Register.<br/><br/>
    </form>
   </div>
-
-  Following are randomly picked up articles.<br/>
 <?php
-    try {
-      $stmt = $pdo->prepare("SELECT href, title, intro, tag, words FROM " .
-                            DB_TBL_NODE . " ORDER BY random() LIMIT 50;");
-      $stmt->execute(array());
-      echo '<table>';
-      while($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-        echo '<tr>';
-        echo '<td><a href="' . $row['href'] . '">' . $row['title'] . '</a></td>';
-        echo '<td>' . $row['intro'] . '</td>';
-        $tags = explode(",", $row['tag']);
-        echo '<td>';
-        foreach($tags as $tag) {
-          $stmt2 = $pdo->prepare("SELECT title FROM " . DB_TBL_TAG . " WHERE " .
-                                 "tid = :tid LIMIT 1;");
-          $stmt2->execute(array(':tid' => $tag));
-          if($subresult = $stmt2->fetch(PDO::FETCH_ASSOC)) {
-            echo '<a href="index.php?menu=tag&tid=' . $tag . '">';
-            echo $subresult['title'];
-            echo "</a>  ";
+      try {
+        $stmt = $pdo->prepare("SELECT href, title, intro, tag, words FROM " .
+                              DB_TBL_NODE . " ORDER BY random() LIMIT 50;");
+        $stmt->execute(array());
+        echo '<table>';
+        while($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+          echo '<tr>';
+          echo '<td><a href="' . $row['href'] . '">' . $row['title'] . '</a></td>';
+          echo '<td>' . $row['intro'] . '</td>';
+          $tags = explode(",", $row['tag']);
+          echo '<td>';
+          foreach($tags as $tag) {
+            $stmt2 = $pdo->prepare("SELECT title FROM " . DB_TBL_TAG . " WHERE " .
+                                   "tid = :tid LIMIT 1;");
+            $stmt2->execute(array(':tid' => $tag));
+            if($subresult = $stmt2->fetch(PDO::FETCH_ASSOC)) {
+              echo '<a href="' . $myfile . '?menu=tag&tid=' . $tag . '">';
+              echo $subresult['title'];
+              echo "</a>  ";
+            }
           }
+          echo '</td><td>';
+          $words = explode(",", $row['words']);
+          foreach ( $words as $word ) {
+            echo $word .
+              '(<a href="http://ja.wikipedia.org/wiki/' . $word . '">J</a>' .
+              '<a href="http://en.wikipedia.org/wiki/' . $word . '">E</a>) ';
+          }
+          echo '</td></tr>';
         }
-        echo '</td><td>';
-        $words = explode(",", $row['words']);
-        foreach ( $words as $word ) {
-          echo $word .
-            '(<a href="http://ja.wikipedia.org/wiki/' . $word . '">J</a>' .
-            '<a href="http://en.wikipedia.org/wiki/' . $word . '">E</a>) ';
-        }
-        echo '</td></tr>';
+        echo '</table></div>';
+      } catch (PDOException $e) {
+        echo "DB error.";
       }
-      echo '</table></div>';
-    } catch (PDOException $e) {
-      echo "DB error.";
+      echo "</body></html>";
       exit;
+    } else {
+      $_SESSION['name'] = $_POST['name'];
+      $_SESSION['pass'] = $_POST['name'] . $_POST['pass'];
     }
-?>
-</body>
-</html>
-<?php
-    exit;
   }
-  // ### index.php with login or register ###
+  // ### login or register ###
 ?>
 <div id="top_menu">
-  <form action="./index.php?menu=search">
+  <form action="./<?php echo $myfile; ?>?menu=search">
   <p class="menu">
-  <a href="./index.php?menu=index">Top</a> |
-  <a href="./index.php?menu=profile">Profile</a> |
-  <a href="./index.php?menu=tag">Tag</a> |
-  <a href="./index.php?menu=imexport">(Im|Ex)port</a> |
-  <a href="./index.php?menu=add">Add</a> |
-  <a href="./index.php?menu=rss">RSS</a> |
-  <a href="./index.php">Logout</a> | 
+  <a href="./<?php echo $myfile; ?>?menu=index">Top</a> |
+  <a href="./<?php echo $myfile; ?>?menu=profile">Profile</a> |
+  <a href="./<?php echo $myfile; ?>?menu=tag">Tag</a> |
+  <a href="./<?php echo $myfile; ?>?menu=imexport">(Im|Ex)port</a> |
+  <a href="./<?php echo $myfile; ?>?menu=add">Add</a> |
+  <a href="./<?php echo $myfile; ?>?menu=rss">RSS</a> |
+  <a href="./">Logout</a> | 
    Search: <input class="noboarder" type="text" />
    (<input type="checkbox" value="Tag"  name="tag" />Tag |
     <input type="checkbox" value="Flag" name="intro" />Intro ||
@@ -329,16 +318,13 @@ strict.dtd">
       $_REQUEST['menu'] = 'logout';
     }
   } catch(PDOException $e) {
-    echo "DB error";
+    echo "DB error</div></body></html>";
     exit;
   }
   switch($_REQUEST['menu']) {
   case 'index':
-  // ### index login index ###
-?>
-  <div align="center">
-    <table>
-<?php
+    // ### index login index ###
+    echo '<div align="center"><table>';
     write_hierarchy(DB_TAG_0,  true, false);
     write_hierarchy($r['tid'], true, false);
     try {
@@ -357,7 +343,7 @@ strict.dtd">
                                  "tid = :tid and uid = :uid ;");
           $stmt2->execute(array(':tid' => $tag, ':uid' => $r['uid']));
           if($subresult = $stmt2->fetch(PDO::FETCH_ASSOC)) {
-            echo '<a href="index.php?menu=tag&tid=' . $tag . '">';
+            echo '<a href="' . $myfile . '?menu=tag&tid=' . $tag . '">';
             echo $subresult['title'];
             echo "</a>  ";
           }
@@ -369,20 +355,19 @@ strict.dtd">
             '(<a href="http://ja.wikipedia.org/wiki/' . $word . '">J</a>' .
             '<a href="http://en.wikipedia.org/wiki/' . $word . '">E</a>) ';
         }
-        echo '</td><td><a href="index.php?menu=delete&nid=' . $row['nid'] . '">Del</a></td>';
+        echo '</td><td><a href="' . $myfile . '?menu=delete&nid=' . $row['nid'] . '">Del</a></td>';
         echo "</tr>";
       }
-      echo "</table></div></div>";
+      echo "</table></div>";
     } catch (PDOException $e) {
-      echo "</table>DB error</div></div>";
-      exit;
+      echo "</table>DB error</div>";
     }
     break;
   // ### index profile ###
   case 'profile':
 ?>
   <div align="center">
-    <form action="index.php?menu=profile" method="post">
+    <form action="<?php echo $myfile; ?>?menu=profile" method="post">
     <table class="noboarder">
     <tr class="noboarder"><td class="noboarder">ID: </td>
       <td class="noboarder"><?php echo $_SESSION['name']; ?></td></tr>
@@ -399,7 +384,6 @@ strict.dtd">
     <input type="submit" value="Change Profile" />
     </form>
   </div>
-</div>
 <?php
     break;
   // ### index add ###
@@ -426,12 +410,12 @@ strict.dtd">
         echo '<p class="comment">New bookmark to ' . $_REQUEST['url'] .
           ' had added.</p>';
       } catch (PDOException $e) {
-        echo "DB error";
+        echo "DB error</div></body></html>";
         exit;
       }
     }
 ?>
-  <form action="index.php?menu=add" method="post">
+  <form action="<?php echo $myfile; ?>?menu=add" method="post">
   <table class="noboarder">
   <tr class="noboarder"><td class="noboarder">Title: </td>
     <td class="noboarder"><input class="noboarder"
@@ -456,7 +440,6 @@ strict.dtd">
   <input class="noboarder" type="submit" value="Get it added now." />
   </form>
   </div>
-</div>
 <?php
     break;
   // ### index delete ###
@@ -473,7 +456,7 @@ strict.dtd">
         echo "DB error";
       }
     }
-    echo "</div></div>";
+    echo "</div>";
     break;
   // ### index tag ###
   case 'tag':
@@ -497,7 +480,6 @@ strict.dtd">
                                    ':tid'   => $_REQUEST['tid']));
             } catch (PDOException $e) {
               echo "DB error.";
-              exit;
             }
           }
         }
@@ -538,7 +520,6 @@ strict.dtd">
           }
         } catch(PDOException $e) {
           echo "DB error.";
-          exit;
         }
         break;
       default:
@@ -546,13 +527,12 @@ strict.dtd">
       }
     }
     write_hierarchy($r['tid'], false, true);
-    echo "</div>";
     break;
   // ### index im/export ###
   case 'imexport':
 ?>
   <div align="center">
-  <form action="index.php?menu=imexport" method="post">
+  <form action="<?php echo $myfile; ?>?menu=imexport" method="post">
   <table class="noboarder">
   <tr class="noboarder"><td class="noboarder">Import: </td>
     <td class="noboarder">
@@ -569,15 +549,13 @@ strict.dtd">
     // attribute tag
     write_hierarchy(DB_TAG_0,  true, false);
     write_hierarchy($r['tid'], true, false);
-    echo "</form></div></div>";
+    echo "</form></div>";
     break;
   // ### index logout ###
   default:
     session_destroy();
-    echo 'Logged out, <a href="index.php?menu=index">please click here</a>.' .
-         "</div>";
+    echo 'Logged out, <a href="' . $myfile . '?menu=index">please click here</a>.';
   }
+  echo "</div></body></html>";
   $pdo = NULL;
 ?>
-</body>
-</html>
