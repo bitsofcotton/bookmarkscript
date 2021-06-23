@@ -280,7 +280,8 @@ strict.dtd">
 <div id="contains">
 <?php
   try {
-    $stmt = $pdo->prepare("SELECT uid, tid, pass FROM " . DB_TBL_ACCOUNT .
+    // XXX:
+    $stmt = $pdo->prepare("SELECT * FROM " . DB_TBL_ACCOUNT .
                           " WHERE name = :name ;");
     $stmt->execute(array(':name' => $_SESSION['name']));
     $r = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -309,7 +310,7 @@ strict.dtd">
       $stmt = $pdo->prepare("UPDATE " . DB_TBL_TAG .
                             " SET uid = :uid WHERE tid = :tid ;");
       $stmt->execute(array(':uid' => $uid, ':tid' => $tid));
-      $stmt = $pdo->prepare("SELECT uid, tid FROM " . DB_TBL_ACCOUNT .
+      $stmt = $pdo->prepare("SELECT * FROM " . DB_TBL_ACCOUNT .
                             " WHERE name = :name ;");
       $stmt->execute(array(':name' => $_SESSION['name']));
       $r = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -365,6 +366,43 @@ strict.dtd">
     break;
   // ### index profile ###
   case 'profile':
+    if(isset($_REQUEST['email']) ||
+       isset($_REQUEST['p_email']) ||
+       isset($_REQUEST['puts']) ||
+       isset($_REQUEST['blog']) ||
+       isset($_REQUEST['sintro'])) {
+      try {
+        if(isset($_REQUEST['email'])) {
+          $stmt = $pdo->prepare("UPDATE " . DB_TBL_ACCOUNT .
+                                " SET email = :email WHERE uid = :uid ;");
+          $stmt->execute(array(':email' => $_REQUEST['email'], ':uid' => $r['uid']));
+          echo "ok";
+        }
+/*
+        // XXX:
+        if(isset($_REQUEST['puts'])) {
+          $stmt = $pdo->prepare("UPDATE " . DB_TBL_ACCOUNT .
+                                " SET puts = :puts WHERE uid = :uid ;");
+          $stmt->execute(array(':puts' => $_REQUEST['puts'], ':uid' => $r['uid']));
+          echo "ok";
+        }
+*/
+        if(isset($_REQUEST['blog'])) {
+          $stmt = $pdo->prepare("UPDATE " . DB_TBL_ACCOUNT .
+                                " SET blog = :blog WHERE uid = :uid ;");
+          $stmt->execute(array(':blog' => $_REQUEST['blog'], ':uid' => $r['uid']));
+          echo "ok";
+        }
+        if(isset($_REQUEST['sintro'])) {
+          $stmt = $pdo->prepare("UPDATE " . DB_TBL_ACCOUNT .
+                                " SET intro = :sintro WHERE uid = :uid ;");
+          $stmt->execute(array(':sintro' => $_REQUEST['sintro'], ':uid' => $r['uid']));
+          echo "ok";
+        }
+      } catch (PDOException $e) {
+        echo "DB error.";
+      }
+    } else {
 ?>
   <div align="center">
     <form action="<?php echo $myfile; ?>?menu=profile" method="post">
@@ -374,17 +412,20 @@ strict.dtd">
     <tr class="noboarder"><td class="noboarder">Pass: </td>
       <td class="noboarder"><input type="submit" name="change" value="Change Password"/></td></tr>
     <tr class="noboarder"><td class="noboarder">EMail: </td>
-      <td class="noboarder"><input class="noboarder" type="text" name="email" />
+      <td class="noboarder"><input class="noboarder" type="text" name="email" value="<?php echo $r['email']; ?>" />
         <input type="checkbox" name="p_email" /></td></tr>
+    <tr class="noboarder"><td class="noboarder">Puts path: </td>
+      <td class="noboarder"><input class="noboarder" type="text" name="puts" value="<?php echo $r['puts']; ?>" /></td></tr>
     <tr class="noboarder"><td class="noboarder">Blog(or your site): </td>
-      <td class="noboarder"><input class="noboarder" type="text" name="blog" /></td></tr>
+      <td class="noboarder"><input class="noboarder" type="text" name="blog" value="<?php echo $r['blog']; ?>" /></td></tr>
     <tr class="noboarder"><td class="noboarder">Self Introduce: </td>
-      <td class="noboarder"><textarea class="noboarder" name=""></textarea></td></tr>
+      <td class="noboarder"><textarea class="noboarder" name="sintro"><?php echo $r['intro']; ?></textarea></td></tr>
     </table>
     <input type="submit" value="Change Profile" />
     </form>
   </div>
 <?php
+    }
     break;
   // ### index add ###
   case 'add':
@@ -510,7 +551,7 @@ strict.dtd">
                 $stmt = $pdo->prepare("DELETE FROM " . DB_TBL_TAG . " WHERE " .
                                       "uid = :uid AND tid = :tid ;");
                 $stmt->execute(array(':uid' => $r['uid'],
-                                     ':tid'  => $_REQUEST['tid']));
+                                     ':tid' => $_REQUEST['tid']));
               } else {
                 echo "There exists siblings.";
               }
@@ -530,25 +571,129 @@ strict.dtd">
     break;
   // ### index im/export ###
   case 'imexport':
+    if(isset($_REQUEST['type'])) {
+      switch($_REQUEST['type']) {
+      case "firefox":
+        echo '<div align="center"><textarea id="export">';
+        $pldoe  = trace_hierarchy(DB_TAG_0, $_REQUEST);
+        $plode .= ", " . trace_hierarchy($r['tid'], $_REQUEST);
+        $plode  = explode(",", $plode);
+        echo '<DL>';
+        foreach($plode as $ttid0) {
+          $ttid = trim($ttid0);
+          if($ttid == '') continue;
+          echo '<DL>';
+          $stmt = $pdo->prepare("SELECT * FROM " . DB_TBL_TAG . " WHERE " .
+                                "tid = :tid ;");
+          $stmt->execute(array(':tid' => $ttid));
+          $row = $stmt->fetch(PDO::FETCH_ASSOC);
+          echo "<DT><H3>" . $row['title'] . "</H3></DT>";
+          $stmt2 = $pdo->prepare("SELECT * FROM " . DB_TBL_NODE . " WHERE " .
+                                 "tag LIKE :tid AND uid = :uid;");
+          $stmt2->execute(array(':tid' => "%" . $ttid . "%",
+                                ':uid' => $r['uid']));
+          $rows2 = $stmt2->fetchAll(PDO::FETCH_ASSOC);
+          foreach($rows2 as $row2) {
+            $impl = explode(",", $row2['tag']);
+            foreach($impl as $im) {
+              if((int)$im == (int)trim($row['tid'])) {
+                echo '<DT><A HREF="';
+                echo $row2['href'];
+                echo '">';
+                echo $row2['title'];
+                echo '</A></DT>';
+                echo "\n";
+                break;
+              }
+            }
+          }
+        }
+        echo '</DL>';
+        echo '</textarea>';
+        break;
+      case "vardump":
+        echo '<div align="center"><textarea id="export">';
+        $stmt = $pdo->prepare("SELECT * " . 
+          " FROM " . DB_TBL_ACCOUNT . " WHERE uid = :uid;");
+        $stmt->execute(array(':uid' => $r['uid']));
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        foreach($rows as $row) {
+          var_dump($row);
+        }
+        $stmt = $pdo->prepare("SELECT * " . 
+          " FROM " . DB_TBL_TAG . " WHERE uid = :uid;");
+        $stmt->execute(array(':uid' => $r['uid']));
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        foreach($rows as $row) {
+          var_dump($row);
+        }
+        $stmt = $pdo->prepare("SELECT * " . 
+          " FROM " . DB_TBL_NODE . " WHERE uid = :uid;");
+        $stmt->execute(array(':uid' => $r['uid']));
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        foreach($rows as $row) {
+          var_dump($row);
+        }
+        echo '</textarea>';
+        break;
+      case "graph":
+        echo '<div align="center"><textarea id="export">';
+        echo 'Not implemented now.';
+        echo '</textarea>';
+        break;
+      default:
+        echo '<div align="center"><textarea id="export">';
+        echo 'No such export format.</textarea>';
+      }
+      echo '<a href="#" onClick=\'javascript: document.getElementById("downexp").href = window.URL.createObjectURL(new Blob([document.getElementById("export").value, {type: "text/plain"}]));\'>Make blob</a>';
+      echo '<a id="downexp">Download</a>';
+      echo '</div>';
+    } else if(isset($_FILES['upfile'])) {
+      $pldoe  = trace_hierarchy(DB_TAG_0, $_REQUEST);
+      $plode .= ", " . trace_hierarchy($r['tid'], $_REQUEST);
+      $doc    = new DOMDocument();
+      $doc->loadHTML(file_get_contents($_FILES['upfile']['tmp_name']));
+      foreach($doc->getElementsByTagName('a') as $item) {
+        $href  = $item->getAttribute('href');
+        $title = $item->nodeValue;
+        try {
+          $stmt = $pdo->prepare("INSERT INTO " . DB_TBL_NODE .
+             " (uid, title, href, intro, tag, words) " .
+             " VALUES (:uid, :title, :href, :intro, :tag, :words);");
+          $stmt->execute(array(':uid'   => $r['uid'],
+             ':uid'   => $r['uid'],
+             ':title' => $title,
+             ':href'  => $href,
+             ':intro' => "auto add",
+             ':tag'   => $plode,
+             ':words' => ""));
+        } catch (PDOException $e) {
+          echo "DB error.";
+          break;
+        }
+      }
+      echo '<div align="center"> imported? </div>';
+    } else {
 ?>
   <div align="center">
-  <form action="<?php echo $myfile; ?>?menu=imexport" method="post">
+  <form action="<?php echo $myfile; ?>?menu=imexport" method="POST" enctype="multipart/form-data">
   <table class="noboarder">
   <tr class="noboarder"><td class="noboarder">Import: </td>
     <td class="noboarder">
-      <input class="noboarder" id="import" type="file" /></td></tr>
+      <input class="noboarder" id="upfile" name="upfile" type="file" /></td></tr>
   <tr class="noboarder"><td class="noboarder">Export: </td>
     <td class=noboarder>
-      <input type="radio" id="firefox" name="type" />firefox |
-      <input type="radio" id="sql"     name="type" />SQL |
-      <input type="radio" id="graph"   name="type" />Graph</td></tr>
+      <input type="radio" value="firefox" name="type" />firefox |
+      <input type="radio" value="vardump" name="type" />vardump |
+      <input type="radio" value="graph"   name="type" />Graph</td></tr>
   </table>
   <input type="submit" /> <br/><br/>
   <p class="comment">Tags to be attributed or to be exported:</p>
 <?php
-    // attribute tag
-    write_hierarchy(DB_TAG_0,  true, false);
-    write_hierarchy($r['tid'], true, false);
+      // attribute tag
+      write_hierarchy(DB_TAG_0,  true, false);
+      write_hierarchy($r['tid'], true, false);
+    }
     echo "</form></div>";
     break;
   // ### index logout ###
