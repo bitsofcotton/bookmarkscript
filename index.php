@@ -123,7 +123,7 @@ function reconstructPuts($uid, $puts0) {
       $impl = explode(",", $row['tag']);
       foreach($impl as $im) {
         if((int)$im == 4) {
-          fwrite($file, $row['href'] . "\n");
+          fwrite($file, $row['href'] . " 1\n");
           break;
         }
       }
@@ -150,13 +150,64 @@ if(isset($_REQUEST['menu']) && isset($_SESSION['name']) &&
     <description>Auto Puts Feed <?php echo $_SERVER['REQUEST_URI']; ?></description>
     
     <item>
-<?php ; ?>
-      <title>No article now</title>
-      <description>Now implementing, please wait some months to be able to work with this (some days per month).</description>
+<?php 
+    $stmt = $pdo->prepare("SELECT * FROM " . DB_TBL_ACCOUNT .
+                          " WHERE name = :name ;");
+    $stmt->execute(array(':name' => $_SESSION['name']));
+    $r = $stmt->fetch(PDO::FETCH_ASSOC);
+    if($r) {
+      if(!password_verify($_SESSION['pass'], $r['pass'])) {
+        $r = false;
+      }
+    }
+    if($r) {
+      preg_match_all("/([0-9a-f]{64,64})/m", $r['puts'], $match);
+      $puts = $match[0][0];
+      if($puts == '') {
+?>
+        <title>No collection</title>
+        <description>No feed</description>
+        <pubDate>N/A</pubDate>
+        <guid></guid>
+        <link></link>
+<?php
+      } else {
+        foreach(new DirectoryIterator("./datas/" . $puts . "/crawl/") as $fileInfo) {
+          if($fileInfo->isDot()) continue;
+          $path = "./datas/" . $puts . "/crawl/" . $fileInfo->getFileName();
+          if(strlen(basename($path)) == 14 && file_exists($path . ".lock")) {
+            $exts = array('-detail.html', '-lack.html', '-root.html', '-stat.html', '-diff.html', '-same.html', '-lword.txt', '-lbalance.txt');
+            foreach($exts as $ext) {
+?>
+              <tiltle><?php echo $path . $ext; ?></title>
+              <description><?php
+              if(file_exists($path . $ext)) {
+                $file = fopen($path . $ext, "r");
+                while(($buf = fgets($file)) !== false) {
+                  echo $buf;
+                }
+                fclose($file);
+              }
+?>
+              </description>
+              <pubDate><?php echo basename($path); ?></pubDate>
+              <guid></guid>
+              <link></link>
+<?php
+            }
+          }
+        }
+      }
+    } else {
+?>
+      <title>Not logged in</title>
+      <description>Not logged in</description>
       <pubDate>N/A</pubDate>
-      <guid>http://services.limpid-intensity.info/bookmark/</guid>
-      <link>http://to_source.com/</link>
-<?php ; ?>
+      <guid></guid>
+      <link></link>
+<?php
+    }
+?>
     </item>
     
   </channel>
@@ -411,6 +462,7 @@ strict.dtd">
           $stmt = $pdo->prepare("UPDATE " . DB_TBL_ACCOUNT .
                                 " SET puts = :puts WHERE uid = :uid ;");
           $stmt->execute(array(':puts' => $_REQUEST['puts'], ':uid' => $r['uid']));
+          reconstructPuts($r['uid'], $r['puts']);
           echo "ok";
         }
         if(isset($_REQUEST['blog'])) {
