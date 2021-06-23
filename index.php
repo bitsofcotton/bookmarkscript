@@ -107,6 +107,34 @@ function trace_hierarchy($tid, $req, $depth = 3)
   return $tags . ", ";
 }
 
+function reconstructPuts($uid, $puts0) {
+  global $pdo;
+  preg_match_all("/([0-9a-f]{64,64})/m", $puts0, $match);
+  $puts = $match[0][0];
+  if($puts == '') return;
+  try {
+    $stmt = $pdo->prepare("SELECT * from " . DB_TBL_NODE .
+      " WHERE uid = :uid AND tag LIKE :tid;");
+    $stmt->execute(array(':uid' => $uid,
+                         ':tid' => "%4%"));
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $file = fopen("./datas/" . $puts . "/urls.txt", "w");
+    foreach($rows as $row) {
+      $impl = explode(",", $row['tag']);
+      foreach($impl as $im) {
+        if((int)$im == 4) {
+          fwrite($file, $row['href'] . "\n");
+          break;
+        }
+      }
+    }
+    fclose($file);
+  } catch (PDOException $e) {
+    echo "DB error.";
+  }
+  return;
+}
+
   // Start index.php
 if(isset($_REQUEST['menu']) && isset($_SESSION['name']) &&
    isset($_SESSION['pass']) && $_REQUEST['menu'] == 'rss') {
@@ -116,17 +144,19 @@ if(isset($_REQUEST['menu']) && isset($_SESSION['name']) &&
 <rss version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/">
   <channel>
     <title>Auto Generated RSS Feed</title>
-    <link>http://services.limpid-intensity.info/bookmark</link>
+    <link><?php echo $_SERVER['REQUEST_URI']; ?></link>
     <language></language>
     <ttl>40</ttl>
-    <description>Auto Generated RSS Feed (services.limpid-intensity.info)</description>
+    <description>Auto Puts Feed <?php echo $_SERVER['REQUEST_URI']; ?></description>
     
     <item>
+<?php ; ?>
       <title>No article now</title>
       <description>Now implementing, please wait some months to be able to work with this (some days per month).</description>
       <pubDate>N/A</pubDate>
       <guid>http://services.limpid-intensity.info/bookmark/</guid>
       <link>http://to_source.com/</link>
+<?php ; ?>
     </item>
     
   </channel>
@@ -280,7 +310,6 @@ strict.dtd">
 <div id="contains">
 <?php
   try {
-    // XXX:
     $stmt = $pdo->prepare("SELECT * FROM " . DB_TBL_ACCOUNT .
                           " WHERE name = :name ;");
     $stmt->execute(array(':name' => $_SESSION['name']));
@@ -378,15 +407,12 @@ strict.dtd">
           $stmt->execute(array(':email' => $_REQUEST['email'], ':uid' => $r['uid']));
           echo "ok";
         }
-/*
-        // XXX:
         if(isset($_REQUEST['puts'])) {
           $stmt = $pdo->prepare("UPDATE " . DB_TBL_ACCOUNT .
                                 " SET puts = :puts WHERE uid = :uid ;");
           $stmt->execute(array(':puts' => $_REQUEST['puts'], ':uid' => $r['uid']));
           echo "ok";
         }
-*/
         if(isset($_REQUEST['blog'])) {
           $stmt = $pdo->prepare("UPDATE " . DB_TBL_ACCOUNT .
                                 " SET blog = :blog WHERE uid = :uid ;");
@@ -450,6 +476,7 @@ strict.dtd">
                              ':words'   => $_REQUEST['words']));
         echo '<p class="comment">New bookmark to ' . $_REQUEST['url'] .
           ' had added.</p>';
+        reconstructPuts($r['uid'], $r['puts']);
       } catch (PDOException $e) {
         echo "DB error</div></body></html>";
         exit;
@@ -575,7 +602,7 @@ strict.dtd">
       switch($_REQUEST['type']) {
       case "firefox":
         echo '<div align="center"><textarea id="export">';
-        $pldoe  = trace_hierarchy(DB_TAG_0, $_REQUEST);
+        $plode  = trace_hierarchy(DB_TAG_0, $_REQUEST);
         $plode .= ", " . trace_hierarchy($r['tid'], $_REQUEST);
         $plode  = explode(",", $plode);
         echo '<DL>';
@@ -649,8 +676,9 @@ strict.dtd">
       echo '<a id="downexp">Download</a>';
       echo '</div>';
     } else if(isset($_FILES['upfile'])) {
-      $pldoe  = trace_hierarchy(DB_TAG_0, $_REQUEST);
+      $plode  = trace_hierarchy(DB_TAG_0, $_REQUEST);
       $plode .= ", " . trace_hierarchy($r['tid'], $_REQUEST);
+      var_dump($plode);
       $doc    = new DOMDocument();
       $doc->loadHTML(file_get_contents($_FILES['upfile']['tmp_name']));
       foreach($doc->getElementsByTagName('a') as $item) {
@@ -673,6 +701,7 @@ strict.dtd">
         }
       }
       echo '<div align="center"> imported? </div>';
+      reconstructPuts($r['uid'], $r['puts']);
     } else {
 ?>
   <div align="center">
