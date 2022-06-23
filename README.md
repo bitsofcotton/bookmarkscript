@@ -14,7 +14,8 @@ This script is a old-styled script. So is not modern one.
 
 # Not scales
 This script either not scales well.
-To scale, we should use another database structures and another puts.php compatibles.
+To scale, we should use another puts.php compatibles using tag hierarchy as one shot query.
 
 # Only bone
 This is only bone work with puts, so details is very rough.
+
